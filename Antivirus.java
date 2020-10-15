@@ -3,21 +3,30 @@ package com.antivir;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import javax.swing.*;
 import java.awt.event.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-public class Antivirus {
+class Antivirus {
     int count = 0;
     int size = 0;
     int occur = 0;
-    HashMap virusHashMap = new HashMap();
-    String directory;
-    File[] listedDirectory;
-    List<String> infectedFiles = new ArrayList<String>();
+    HashMap virusHashMap = new HashMap(); //HashMap for virus' keys
+    String directory; //saved path
+    List<String> listedFiles = new ArrayList<String>(); //List of files & directories at the path
+    List<File> subDirectories; //TODO
+    List<String> infectedFiles = new ArrayList<String>(); //List of all found infected files
+    int[] depthCounter = {0, 0, 0};
+    int depthLevel = 0;
 
     static final String SIGNATURES_FILE = "source files/signatures.txt";
-    static final String FILE_TO_CHECK = "source files/virus.exe";
+
+    //Using Swing UI designer
     private JPanel formMain;
     private JButton buttonPickDir;
     private JButton buttonStart;
@@ -31,7 +40,7 @@ public class Antivirus {
             BufferedReader br = new BufferedReader(in);
             String line;
             int i = 0;
-            while ((line = br.readLine()) != null) {
+            while ((line = br.readLine()) != null) { //filling in the HashMap
                 virusHashMap.put(line.substring(0, line.indexOf("/")), line.substring(line.indexOf("/") + 1, line.length()));
                 ++i;
             }
@@ -60,11 +69,11 @@ public class Antivirus {
         }
         System.out.println("size" + String.valueOf(size) + " | occur " + String.valueOf(occur));
         br.close();
-        if (size == occur && !(size == 0 && occur == 0)) {
+        if (size == occur && !(size == 0 && occur == 0)) { //checking the file to contain a virus condition
             JOptionPane.showMessageDialog(null, "Infected File", "Virus Detected ", JOptionPane.ERROR_MESSAGE);
             System.out.println("Virus Detected");
             infectedFiles.add(file);
-            textAreaViruses.append(file);
+            textAreaViruses.append(file); //GUI logging element
         }
         else{
             JOptionPane.showMessageDialog(null, "Clean File", "No Virus Found ", JOptionPane.INFORMATION_MESSAGE);
@@ -76,29 +85,29 @@ public class Antivirus {
         buttonPickDir.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                //directory = "source files/virus.exe";
                 directory = textFieldDir.getText();
                 File f = new File(directory);
-                listedDirectory = f.listFiles();
-                System.out.println(Arrays.toString(listedDirectory));
             }
         });
+
         buttonStart.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 try {
-                    for (File f : listedDirectory) {
-                        String filename = f.toString();
-                        int isSysFile = filename.substring(f.toString().lastIndexOf(".") + 1).compareTo("sys");
-                        boolean isSysFileBool = false;
+                    readSignatures(SIGNATURES_FILE);
 
-                        if(isSysFile == 0)
-                            isSysFileBool = true;
+                    try (Stream<Path> filesTree = Files.walk(Paths.get(directory), 10
 
-                        if ( f.isFile() && !isSysFileBool) {
-                            System.out.println(f.toString());
-                            searchForVirus(f.toString());
-                        }
+
+                            )) {
+                        listedFiles = filesTree.map(path -> Files.isRegularFile(path) ? path.toString() + '/' : path.toString()).collect(Collectors.toList());
+                    }
+                    catch (Exception exc) {
+                        System.out.println("Tree walking error: " + exc);
+                    }
+
+                    for (String f: listedFiles) {
+                        searchForVirus(f);
                     }
 
                 } catch(Exception err) {
@@ -110,12 +119,6 @@ public class Antivirus {
 
 
     public static void main(String[] args) {
-        /*try {
-            Antivirus fr = new Antivirus();
-            fr.showDialog(fr);
-        } catch (Exception err) {
-            System.out.println("Error: " + err);
-        }*/
 
         Antivirus av = new Antivirus();
 
